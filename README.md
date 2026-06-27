@@ -1,51 +1,78 @@
-# Hệ thống Cảnh báo Ngủ gật Thông minh AI (DMS)
+# Driver Monitoring System (DMS) - Hệ Thống Cảnh Báo Buồn Ngủ & Giám Sát Tài Xế Thời Gian Thực
 
-Dự án này triển khai hệ thống giám sát người lái xe (Driver Monitoring System - DMS) thời gian thực sử dụng thị giác máy tính và học máy (PyTorch LSTM). Hệ thống phân tích đa đặc trưng bao gồm tỷ lệ mở mắt (EAR), tỷ lệ mở miệng (MAR), tư thế góc quay đầu (Head Pose), tỷ lệ nhắm mắt tích lũy (PERCLOS), tần suất chớp mắt (Blink Rate) và ngáp (Yawning) để tính toán điểm mệt mỏi Fatigue Score (FS) và dự báo nguy cơ vi ngủ (Microsleep).
-
----
-
-## Tính năng nổi bật
-1. **Phân tích Đa đặc trưng**: Kết hợp đồng thời EAR, MAR, Head Pose (Pitch, Yaw, Roll), PERCLOS, Blink Rate và đếm số lần ngáp để tránh báo động giả so với chỉ dùng EAR đơn lẻ.
-2. **Cá nhân hóa Ngưỡng (Calibration)**: Tự động học thói quen mở mắt/miệng của từng tài xế trong 5 giây đầu tiên khi bắt đầu chạy hệ thống để tính toán các ngưỡng cảnh báo riêng biệt.
-3. **Mô hình Dự báo LSTM**: Sử dụng mạng nơ-ron LSTM (PyTorch) phân tích chuỗi thời gian 60 giây để dự báo sớm nguy cơ xảy ra Microsleep.
-4. **Cảnh báo Đa tầng Không trễ**: Sử dụng luồng chạy ngầm riêng (threading) phát âm thanh bíp (`winsound.Beep`) để cảnh báo tài xế ở các mức độ mệt mỏi khác nhau mà không làm giật/lag hình ảnh camera.
-5. **Chế độ Giả lập (Simulation Mode)**: Tự động chuyển sang chế độ giả lập nếu máy tính không kết nối webcam, giúp chạy thử nghiệm thuật toán và kiểm tra giao diện trực quan ngay lập tức.
+Hệ thống giám sát người lái xe (Driver Monitoring System - DMS) được phát triển nhằm phát hiện sớm các dấu hiệu mệt mỏi, buồn ngủ và mất tập trung của tài xế khi tham gia giao thông. Hệ thống kết hợp các thuật toán thị giác máy tính cổ điển (Heuristic) cùng mô hình mạng nơ-ron học máy tuần hoàn (LSTM PyTorch) để phân tích chuỗi thời gian, đưa ra cảnh báo đa tầng không trễ.
 
 ---
 
-## Cấu trúc thư mục
-- `requirements.txt`: Chứa danh sách các thư viện cần cài đặt.
-- `lstm_model.py`: Khai báo cấu trúc mạng LSTM dự báo Microsleep sử dụng PyTorch.
-- `train_lstm.py`: Huấn luyện mô hình LSTM với dữ liệu giả lập hành vi buồn ngủ và lưu trọng số vào `lstm_drowsiness.pth`.
-- `drowsiness_detector.py`: Kịch bản chạy chính thời gian thực kết nối với camera và chạy dashboard thống kê chỉ số.
+## 📌 Tổng Quan Giải Pháp
+
+Hệ thống hoạt động dựa trên việc khai thác dữ liệu từ Camera cabin để phân tích các đặc trưng khuôn mặt của tài xế theo thời gian thực:
+* **Độ mở mắt (EAR - Eye Aspect Ratio)**: Xác định trạng thái chớp mắt, nhắm mắt.
+* **Độ mở miệng (MAR - Mouth Aspect Ratio)**: Phát hiện hành vi ngáp.
+* **Tư thế đầu (Head Pose via SolvePnP)**: Tính toán góc cúi/ngửa (`Pitch`), quay trái/phải (`Yaw`), nghiêng đầu (`Roll`) dựa trên việc giải bài toán phối cảnh 3 điểm (Perspective-n-Point) từ các tọa độ Landmark khuôn mặt.
+* **Chỉ số PERCLOS (Percentage of Eye Closure)**: Tính tỷ lệ thời gian mắt nhắm trong một khoảng thời gian trượt (5 giây) để đánh giá trạng thái vi ngủ (Microsleep).
+* **Mô hình LSTM (Long Short-Term Memory)**: Dự báo nguy cơ buồn ngủ sớm dựa trên chuỗi biến động các chỉ số trong vòng 60 giây gần nhất.
 
 ---
 
-## Hướng dẫn cài đặt & Chạy thử nghiệm
+## ✨ Các Tính Năng Chính
 
-### Bước 1: Cài đặt thư viện
-Mở terminal (PowerShell hoặc Command Prompt) tại thư mục dự án và chạy lệnh sau để cài đặt các thư viện phụ thuộc:
+* **Nhận diện thời gian thực**: Xử lý mượt mà lên tới 30 FPS trên các thiết bị CPU phổ thông nhờ luồng xử lý luân phiên và tối ưu hóa MediaPipe Face Mesh.
+* **Hiệu chuẩn động tự động & thủ công (Calibration)**: 
+  * Tự động tính toán các chỉ số cơ bản (baseline) của từng người lái trong 3 giây đầu tiên khởi động.
+  * Hỗ trợ phím tắt **`r`** để tài xế hiệu chuẩn lại bất cứ lúc nào khi đã ngồi đúng tư thế chuẩn.
+* **Cảnh báo khẩn cấp tức thì (Safety Overrides)**: Bỏ qua điểm tích lũy để còi hú báo động ngay lập tức nếu phát hiện nhắm mắt liên tục > 1.0 giây hoặc gục đầu/lệch đầu nguy hiểm > 1.0 giây.
+* **Cảnh báo âm thanh đa tầng**: Sử dụng giải pháp đa luồng (Multi-threading) điều khiển còi bíp (`winsound`) riêng biệt, đảm bảo cảnh báo kêu to mà không gây đứng hình hay giật lag khung hình camera.
+* **Ghi nhật ký lịch sử SQLite**: Tự động ghi nhận thông số (EAR, MAR, Pitch, Yaw, Roll, Risk Score) mỗi giây một lần vào database `dms_history.db` phục vụ mục đích hậu kiểm và phân tích.
+* **Chế độ giả lập (Simulation Mode)**: Tự động chuyển sang luồng dữ liệu giả lập sinh động khi không kết nối webcam, hỗ trợ demo nhanh sản phẩm.
+
+---
+
+## 📂 Cấu Trúc Dự Án
+
+```text
+├── drowsiness_detector.py # Script chạy chính thời gian thực (Webcam + Dashboard UI)
+├── lstm_model.py          # Kiến trúc mạng LSTM dự báo Microsleep (PyTorch)
+├── train_lstm.py          # Script huấn luyện mô hình LSTM & Tạo tập dữ liệu giả lập
+├── requirements.txt       # Danh sách thư viện phụ thuộc của dự án
+├── SUMMARY.txt            # Tài liệu tổng kết chi tiết kết quả thực hiện
+└── dms_history.db         # Database SQLite lưu log chạy hệ thống (Tự động sinh ra)
+```
+
+---
+
+## 🛠️ Hướng Dẫn Cài Đặt & Khởi Chạy
+
+### 1. Chuẩn bị môi trường
+Yêu cầu hệ thống đã cài đặt **Python 3.10** hoặc các phiên bản tương thích. Mở cửa sổ dòng lệnh tại thư mục gốc của dự án và chạy:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### Bước 2: Huấn luyện mô hình LSTM
-Chạy file huấn luyện để tạo trọng số mô hình dự báo Microsleep:
+### 2. Huấn luyện mô hình dự báo LSTM
+Để huấn luyện mô hình học máy nhận diện chuỗi thời gian Microsleep:
+
 ```bash
 python train_lstm.py
 ```
-*Lưu ý: Chương trình sẽ sinh dữ liệu giả lập cho trạng thái tỉnh táo & buồn ngủ, chạy huấn luyện 20 epochs và lưu file trọng số `lstm_drowsiness.pth` ngay trong thư mục.*
+*Sau khi chạy, file trọng số `lstm_drowsiness.pth` sẽ được tạo ra trong thư mục dự án.*
 
-### Bước 3: Chạy ứng dụng nhận diện
-Bật camera lên và chạy file phát hiện ngủ gật chính:
+### 3. Chạy hệ thống giám sát
+Khởi động hệ thống nhận diện từ camera:
+
 ```bash
 python drowsiness_detector.py
 ```
 
-* Hướng dẫn khi chạy:
-  1. Trong **5 giây đầu tiên (100 frames)**: Hệ thống sẽ tiến hành **Hiệu chuẩn (Calibrating)**. Bạn hãy nhìn thẳng vào camera, mở mắt bình thường và không ngáp hay cúi đầu để hệ thống học trạng thái tỉnh táo chuẩn của bạn.
-  2. Sau khi hiệu chuẩn hoàn tất, hệ thống bắt đầu giám sát thời gian thực.
-  3. Để kiểm tra còi báo động:
-     * Nhắm mắt lại trong 3-4 giây (EAR giảm, PERCLOS tăng), còi cảnh báo sẽ bíp liên tục và viền màn hình nhấp nháy đỏ.
-     * Cúi đầu thấp xuống hoặc ngáp to để xem Fatigue Score và cảnh báo thay đổi màu sắc trên Dashboard.
-  4. Nhấn phím **'q'** trên cửa sổ video để tắt và thoát chương trình một cách an toàn.
+---
+
+## 🎮 Hướng Dẫn Sử Dụng & Test Case
+
+1. **Hiệu chuẩn Baseline**: Khi camera mở lên, hãy ngồi thẳng lưng và nhìn thẳng vào camera trong khoảng **3 giây đầu (100 frames)** để hệ thống học tư thế và kích thước mắt/miệng của bạn.
+2. **Hiệu chuẩn lại (Khi cần)**: Nếu hệ thống báo nhạy quá mức hoặc vị trí ngồi của bạn thay đổi, hãy ngồi thẳng lưng nhìn camera và nhấn phím **`r`** trên bàn phím.
+3. **Các tình huống kiểm thử (Test Cases)**:
+   * **Nhắm mắt lâu**: Thử nhắm mắt trong hơn 1 giây, hệ thống sẽ kích hoạt báo động đỏ khẩn cấp: **`NGUY HIEM - NHAM MAT!`**.
+   * **Gục đầu / Ngửa đầu quá mức**: Cúi đầu sâu hoặc ngửa hẳn cổ ra sau trong hơn 1 giây, hệ thống sẽ báo: **`NGUY HIEM - LECH DAU!`**.
+   * **Ngáp liên tục**: Thực hiện ngáp to, thanh MAR sẽ tăng kịch khung và tăng điểm cảnh báo mệt mỏi trên Dashboard.
+4. **Thoát chương trình**: Click chọn cửa sổ camera và nhấn phím **`q`** để dừng ứng dụng.
