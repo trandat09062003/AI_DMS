@@ -197,7 +197,7 @@ def draw_bar(img, label, val, max_val, x, y, w, h, color):
 # --- Luồng Ứng Dụng Chính ---
 
 def main():
-    global alarm_level
+    global alarm_level, GPIO_AVAILABLE, WINSOUND_AVAILABLE
     print("====================================================")
     print("DMS: HE THONG CANH BAO NGU GAT THOI GIAN THUC (AI)")
     print("====================================================")
