@@ -203,14 +203,34 @@ def main():
     print("====================================================")
     
     # Cấu hình camera
-    cap = cv2.VideoCapture(0)
+    cap = None
     simulated_mode = False
     
-    if not cap.isOpened():
-        print("[WARN] Khong the mo camera cap(0). Chuyen sang che do GIAP LAP (Simulation Mode) de minh hoa!")
+    # Thử mở camera ở các chỉ số 0, 1, 2 (đề phòng Raspberry Pi nhận chỉ số khác)
+    for camera_idx in [0, 1, 2]:
+        try:
+            print(f"[INFO] Dang thu mo camera index {camera_idx}...")
+            temp_cap = cv2.VideoCapture(camera_idx)
+            if temp_cap.isOpened():
+                cap = temp_cap
+                print(f"[SUCCESS] Da mo camera index {camera_idx} thanh cong!")
+                break
+            else:
+                temp_cap.release()
+        except:
+            pass
+            
+    if cap is None:
+        print("====================================================")
+        print("[WARN] CANH BAO: Khong the mo bat ky camera nao (COM/dev/video)!")
+        print("[HUONG DAN CHO RASPBERRY PI / UBUNTU]:")
+        print("1. Neu ban dang dung Raspberry Pi Camera Module 3:")
+        print("   - Hãy dam bao da them 'dtoverlay=imx708' vao cuoi file '/boot/firmware/config.txt' va reboot.")
+        print("   - Chay ung dung qua cong cu tuong thich: 'libcamerify python3 drowsiness_detector.py'")
+        print("2. Kiem tra cong ket noi cap va dam bao camera khong bi ung dung khac chiem dung.")
+        print("Hệ thong tu dong chuyen sang che do GIAP LAP (Simulation Mode) de ban kiem tra...")
+        print("====================================================")
         simulated_mode = True
-    else:
-        print("[INFO] Da mo camera thanh cong.")
         
     # Khởi tạo MediaPipe Face Mesh (Graceful fallback nếu không hỗ trợ)
     mediapipe_available = True
@@ -797,7 +817,8 @@ def main():
             print("[INFO] Yeu cau hieu chuan lai baseline...")
 
     # Giải phóng tài nguyên
-    cap.release()
+    if cap is not None:
+        cap.release()
     cv2.destroyAllWindows()
     if GPIO_AVAILABLE:
         try:
