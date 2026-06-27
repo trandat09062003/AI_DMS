@@ -5,10 +5,26 @@ import torch
 import time
 import os
 import threading
-import winsound
+try:
+    import winsound
+    WINSOUND_AVAILABLE = True
+except ImportError:
+    WINSOUND_AVAILABLE = False
+
+try:
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except ImportError:
+    GPIO_AVAILABLE = False
+
+# Cấu hình cổng vật lý trên Raspberry Pi (nếu chạy trên Ubuntu Pi)
+MOTOR_PIN = 17  # Chân GPIO 17 điều khiển động cơ rung
+BUZZER_PIN = 27 # Chân GPIO 27 điều khiển còi chíp vật lý
+
 import sqlite3
 from collections import deque
 from lstm_model import DrowsinessLSTM
+
 
 # --- Cấu hình các chỉ số mốc khuôn mặt (Landmarks) ---
 # Theo thuyết minh sáng kiến:
@@ -53,14 +69,46 @@ alarm_level = 0  # 0: bình thường, 1: mệt nhẹ (no beep), 2: mệt vừa 
 def alarm_worker():
     global alarm_level
     while True:
-        if alarm_level == 2:
-            winsound.Beep(2000, 300)
-            time.sleep(1.0)
-        elif alarm_level == 3:
-            winsound.Beep(2500, 150)
-            time.sleep(0.2)
+        # 1. Điều khiển cổng vật lý trên Raspberry Pi nếu có GPIO
+        if GPIO_AVAILABLE:
+            try:
+                if alarm_level == 0:
+                    GPIO.output(MOTOR_PIN, GPIO.LOW)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.1)
+                elif alarm_level == 1:
+                    GPIO.output(MOTOR_PIN, GPIO.LOW)
+                    GPIO.output(BUZZER_PIN, GPIO.HIGH)
+                    time.sleep(0.1)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.9)
+                elif alarm_level == 2:
+                    GPIO.output(MOTOR_PIN, GPIO.HIGH)
+                    GPIO.output(BUZZER_PIN, GPIO.HIGH)
+                    time.sleep(0.2)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.3)
+                elif alarm_level == 3:
+                    GPIO.output(MOTOR_PIN, GPIO.HIGH)
+                    GPIO.output(BUZZER_PIN, GPIO.HIGH)
+                    time.sleep(0.1)
+                    GPIO.output(BUZZER_PIN, GPIO.LOW)
+                    time.sleep(0.1)
+            except:
+                time.sleep(0.1)
+        # 2. Điều khiển âm thanh trên PC (Windows) nếu chạy thử nghiệm
         else:
-            time.sleep(0.1)
+            if WINSOUND_AVAILABLE:
+                if alarm_level == 2:
+                    winsound.Beep(2000, 300)
+                    time.sleep(1.0)
+                elif alarm_level == 3:
+                    winsound.Beep(2500, 150)
+                    time.sleep(0.2)
+                else:
+                    time.sleep(0.1)
+            else:
+                time.sleep(0.1)
 
 threading.Thread(target=alarm_worker, daemon=True).start()
 
@@ -216,6 +264,19 @@ def main():
     """)
     db_conn.commit()
     print(f"[INFO] Da khoi tao co so du lieu SQLite tai: {db_path}")
+
+    # Khởi tạo GPIO trên Raspberry Pi (nếu có sẵn)
+    if GPIO_AVAILABLE:
+        try:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(MOTOR_PIN, GPIO.OUT)
+            GPIO.setup(BUZZER_PIN, GPIO.OUT)
+            GPIO.output(MOTOR_PIN, GPIO.LOW)
+            GPIO.output(BUZZER_PIN, GPIO.LOW)
+            print("[INFO] Da khoi tao GPIO Raspberry Pi thanh cong.")
+        except Exception as e:
+            GPIO_AVAILABLE = False
+            print(f"[WARN] Khong the khoi tao GPIO: {e}")
 
     # Khởi tạo các cấu trúc lưu trữ và cửa sổ trượt
     frame_buffer = []  # Lưu dữ liệu trong 1 giây để tính trung bình
@@ -738,6 +799,12 @@ def main():
     # Giải phóng tài nguyên
     cap.release()
     cv2.destroyAllWindows()
+    if GPIO_AVAILABLE:
+        try:
+            GPIO.cleanup()
+            print("[INFO] Da giai phong chan GPIO Raspberry Pi.")
+        except:
+            pass
     try:
         db_conn.close()
         print("[INFO] Da dong ket noi SQLite database.")
