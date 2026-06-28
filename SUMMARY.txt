@@ -58,3 +58,20 @@ Bước 2: Chạy lệnh khởi động:
 Bước 3: Ngồi thẳng trước camera trong 5 giây đầu để máy làm ấm camera và hiệu chuẩn tự động.
 Bước 4: Nhắm mắt trong 3 giây hoặc cúi đầu / ngáp để kiểm chứng âm thanh báo động đa tầng và dashboard thay đổi màu sắc.
 Bước 5: Nhấp chuột vào cửa sổ camera và nhấn phím 'q' để kết thúc chương trình.
+
+5. CÁC NÂNG CẤP DÀNH RIÊNG CHO HỆ ĐIỀU HÀNH UBUNTU & RASPBERRY PI
+-----------------------------------------------------------------
+Hệ thống đã được cập nhật thiết kế đa nền tảng (Cross-platform), tự động thích ứng với cả môi trường Windows và Ubuntu (chạy trên Raspberry Pi):
+* Nhận diện và Tương thích Phần cứng Động (Dynamic Driver Load):
+  - Tự động phát hiện hệ điều hành để import linh hoạt `RPi.GPIO` (trên Pi/Ubuntu) hoặc `winsound` (trên Windows).
+  - Tránh lỗi crash `ImportError` ở cả hai môi trường.
+* Điều khiển trực tiếp Chân Vật lý trên Pi:
+  - Khởi tạo chân GPIO 17 (động cơ rung) và GPIO 27 (còi chíp vật lý) khi chạy trên Pi.
+  - Phân tầng điều khiển mức độ rung và tần số còi bíp vật lý theo từng cấp độ cảnh báo tương ứng (từ 0 đến 3).
+* Tự động quét nhiều cổng Camera (Camera Index Scan):
+  - Quét tuần tự cổng index 0, 1, và 2 để tự động kết nối cổng camera khả dụng trên Ubuntu.
+  - Thêm cơ chế phòng ngừa lỗi crash NoneType khi giải phóng camera.
+* Tích hợp Hướng dẫn Khắc phục sự cố libcamera:
+  - In trực tiếp hướng dẫn khắc phục driver cảm biến Camera Module 3 (IMX708) và cách chạy qua bộ tương thích `libcamerify` trong Terminal nếu không phát hiện được camera vật lý.
+* Sửa lỗi Tầm vực Biến số (Scope Fix):
+  - Khai báo từ khóa `global` cho các biến quản lý trạng thái thiết bị (`GPIO_AVAILABLE`, `WINSOUND_AVAILABLE`) để loại bỏ hoàn toàn lỗi `UnboundLocalError` khi biên dịch trên Linux/Ubuntu.
