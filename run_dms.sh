@@ -22,6 +22,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Tự động cài đặt RPi.GPIO nếu chạy trên Raspberry Pi
+if grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
+    echo "[INFO] Phat hien chay tren Raspberry Pi. Dang tu dong cai dat RPi.GPIO..."
+    venv/bin/pip install RPi.GPIO
+fi
+
 # Run the program
 echo "[INFO] Starting Driver Monitoring System..."
 venv/bin/python3 drowsiness_detector.py

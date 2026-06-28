@@ -13,7 +13,7 @@ except ImportError:
 
 try:
     import RPi.GPIO as GPIO
-    GPIO_AVAILABLE = False # Tạm thời vô hiệu hóa theo yêu cầu người dùng
+    GPIO_AVAILABLE = True
 except ImportError:
     GPIO_AVAILABLE = False
 
@@ -208,15 +208,20 @@ def main():
     cap = None
     simulated_mode = False
     
-    # Thử mở camera ở các chỉ số 0, 1, 2 (đề phòng Raspberry Pi nhận chỉ số khác)
-    for camera_idx in [0, 1, 2]:
+    # Thử mở camera ở các chỉ số từ 0 đến 10 (đề phòng Raspberry Pi nhận chỉ số khác như /dev/video4 hoặc /dev/video10)
+    for camera_idx in range(11):
         try:
             print(f"[INFO] Dang thu mo camera index {camera_idx}...")
             temp_cap = cv2.VideoCapture(camera_idx)
             if temp_cap.isOpened():
-                cap = temp_cap
-                print(f"[SUCCESS] Da mo camera index {camera_idx} thanh cong!")
-                break
+                # Đọc thử 1 frame để chắc chắn đây là thiết bị thu hình thực sự
+                ret, _ = temp_cap.read()
+                if ret:
+                    cap = temp_cap
+                    print(f"[SUCCESS] Da mo camera index {camera_idx} thanh cong!")
+                    break
+                else:
+                    temp_cap.release()
             else:
                 temp_cap.release()
         except:
