@@ -28,6 +28,28 @@ if grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
     venv/bin/pip install RPi.GPIO
 fi
 
+# Hiển thị các thiết bị video đang kết nối để chẩn đoán
+echo "===================================================="
+echo "[DIAGNOSTIC] Cac thiet bi camera phat hien tren he thong:"
+if command -v v4l2-ctl >/dev/null 2>&1; then
+    v4l2-ctl --list-devices
+else
+    ls -l /dev/video* 2>/dev/null || echo "Khong tim thay thiet bi /dev/video nao."
+fi
+echo "===================================================="
+
 # Run the program
 echo "[INFO] Starting Driver Monitoring System..."
-venv/bin/python3 drowsiness_detector.py
+if command -v libcamerify >/dev/null 2>&1; then
+    echo "[INFO] Phat hien libcamerify. Dang chay ung dung qua libcamerify..."
+    libcamerify venv/bin/python3 drowsiness_detector.py
+else
+    if grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
+        echo "[WARN] Canh bao: Khong tim thay 'libcamerify'."
+        echo "       Neu ban su dung Raspberry Pi Camera Module (CSI), vui long cai dat de ho tro camera:"
+        echo "       sudo apt update && sudo apt install -y libcamera-tools"
+        echo "       Sau do chay lai script nay."
+        echo "----------------------------------------------------"
+    fi
+    venv/bin/python3 drowsiness_detector.py
+fi
