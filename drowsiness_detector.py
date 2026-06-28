@@ -6,18 +6,10 @@ import time
 import os
 import threading
 try:
-    import winsound
-    WINSOUND_AVAILABLE = True
-except ImportError:
-    WINSOUND_AVAILABLE = False
-
-try:
     import RPi.GPIO as GPIO
     GPIO_AVAILABLE = True
 except ImportError:
     GPIO_AVAILABLE = False
-
-WINSOUND_AVAILABLE = False # Không dùng âm thanh bíp hệ thống trên Windows/Linux
 
 # Cấu hình cổng vật lý trên Raspberry Pi (nếu chạy trên Ubuntu Pi)
 MOTOR_PIN = 17  # Chân GPIO 17 điều khiển động cơ rung
@@ -98,19 +90,9 @@ def alarm_worker():
                     time.sleep(0.1)
             except:
                 time.sleep(0.1)
-        # 2. Điều khiển âm thanh trên PC (Windows) nếu chạy thử nghiệm
+        # 2. Chế độ PC thường (không có phần cứng còi chíp/rung)
         else:
-            if WINSOUND_AVAILABLE:
-                if alarm_level == 2:
-                    winsound.Beep(2000, 300)
-                    time.sleep(1.0)
-                elif alarm_level == 3:
-                    winsound.Beep(2500, 150)
-                    time.sleep(0.2)
-                else:
-                    time.sleep(0.1)
-            else:
-                time.sleep(0.1)
+            time.sleep(0.1)
 
 threading.Thread(target=alarm_worker, daemon=True).start()
 
@@ -199,7 +181,7 @@ def draw_bar(img, label, val, max_val, x, y, w, h, color):
 # --- Luồng Ứng Dụng Chính ---
 
 def main():
-    global alarm_level, GPIO_AVAILABLE, WINSOUND_AVAILABLE
+    global alarm_level, GPIO_AVAILABLE
     print("====================================================")
     print("DMS: HE THONG CANH BAO NGU GAT THOI GIAN THUC (AI)")
     print("====================================================")
@@ -229,7 +211,7 @@ def main():
             
     if cap is None:
         print("====================================================")
-        print("[WARN] CANH BAO: Khong the mo bat ky camera nao (COM/dev/video)!")
+        print("[WARN] CANH BAO: Khong the mo bat ky camera nao (/dev/video)!")
         print("[HUONG DAN CHO RASPBERRY PI / UBUNTU]:")
         print("1. Neu ban dang dung Raspberry Pi Camera Module 3:")
         print("   - Hãy dam bao da them 'dtoverlay=imx708' vao cuoi file '/boot/firmware/config.txt' va reboot.")

@@ -1,74 +1,111 @@
-# Driver Monitoring System (DMS)
+# Driver Monitoring System (DMS) - AI Detection
 
-Dự án giám sát trạng thái tài xế (phát hiện buồn ngủ, ngáp, mất tập trung) thời gian thực. Hệ thống kết hợp thư viện MediaPipe Face Mesh để trích xuất đặc trưng khuôn mặt và mô hình LSTM (PyTorch) để dự báo sớm Microsleep (vi ngủ) dựa trên chuỗi thời gian 60 giây.
+Hệ thống giám sát trạng thái tài xế (phát hiện buồn ngủ, ngáp, mất tập trung) thời gian thực bằng trí tuệ nhân tạo. Dự án kết hợp mô hình trích xuất đặc trưng khuôn mặt (MediaPipe Face Mesh) và mô hình học sâu tuần hoàn LSTM (PyTorch) nhằm phân tích chuỗi hành vi thời gian thực trong 60 giây và đưa ra dự báo sớm trạng thái buồn ngủ/vi ngủ (Microsleep).
 
-Dự án được phát triển, tối ưu và thử nghiệm chạy ổn định trên cả **Windows** và **Ubuntu** (bao gồm cả PC thông thường và dòng mạch đơn board như Raspberry Pi 4).
-
----
-
-## Tính năng chính
-* **Nhận diện thời gian thực**: Tính toán EAR (độ mở mắt), MAR (độ mở miệng) và Head Pose (góc cúi, ngửa, nghiêng đầu bằng SolvePnP).
-* **Đo lường PERCLOS**: Đánh giá chỉ số nhắm mắt tích lũy trong 5 giây gần nhất để đưa ra cảnh báo chính xác.
-* **Dự báo sớm bằng mạng LSTM**: Sử dụng chuỗi dữ liệu 60 giây trượt để dự đoán sớm nguy cơ buồn ngủ.
-* **Cảnh báo khẩn cấp (Safety Overrides)**: Kích hoạt báo động đỏ ngay lập tức nếu nhắm mắt liên tục > 1.0 giây hoặc lệch đầu/gục đầu quá giới hạn > 1.0 giây.
-* **Ghi log SQLite**: Lưu dữ liệu phân tích mỗi giây một lần vào `dms_history.db` phục vụ mục đích kiểm tra lại.
+> **Lưu ý quan trọng**: Hệ thống được phát triển và tối ưu hóa chuyên biệt cho môi trường **Ubuntu / Linux** và **Raspberry Pi** (không hỗ trợ hệ điều hành Windows).
 
 ---
 
-## Hướng dẫn cài đặt và chạy ứng dụng
+## Các tính năng chính
 
-### 1. Chạy trên máy tính thông thường (Windows / Ubuntu)
+- **Phân tích đặc trưng sinh học thời gian thực**:
+  - **EAR (Eye Aspect Ratio)**: Đo lường độ mở mắt động theo trạng thái sinh lý của tài xế.
+  - **MAR (Mouth Aspect Ratio)**: Đánh giá biên độ mở miệng để phát hiện hành vi ngáp.
+  - **Head Pose Estimation (SolvePnP)**: Tính toán góc cúi/ngửa (Pitch), nghiêng (Roll) và quay đầu (Yaw) dưới dạng tọa độ 3D.
+- **Tính toán chỉ số PERCLOS**: Đánh giá phần trăm thời gian nhắm mắt tích lũy (5 giây gần nhất) để nhận diện trạng thái mệt mỏi khách quan.
+- **Dự báo vi ngủ sớm bằng LSTM**: Sử dụng chuỗi trượt 60 giây để dự đoán sớm nguy cơ buồn ngủ trước khi xảy ra sự cố.
+- **Cơ chế phản hồi cảnh báo khẩn cấp (Safety Overrides)**:
+  - Báo động tức thì nếu nhắm mắt liên tục > 1.0 giây.
+  - Báo động tức thì nếu lệch đầu, gục đầu quá góc quy định > 1.0 giây.
+  - Cảnh báo mất dấu khuôn mặt (Face Lost) nếu tài xế lệch khỏi khung hình > 1.5 giây.
+- **Tích hợp phần cứng (Raspberry Pi GPIO)**: Tự động phát hiện và kích hoạt mô-tơ rung (GPIO 17) và còi chíp (GPIO 27) tương thích theo từng cấp độ nguy hiểm.
+- **Lịch sử hoạt động**: Tự động lưu trữ thông số trạng thái mỗi giây vào cơ sở dữ liệu SQLite (`dms_history.db`) phục vụ giám sát và phân tích hành trình.
 
-Dự án đã đính kèm sẵn file trọng số model trained (`lstm_drowsiness.pth`) nên bạn có thể chạy luôn ứng dụng mà không cần huấn luyện lại model.
+---
 
-#### Cách chạy trên Ubuntu:
-Chỉ cần chạy file script tự động cài đặt môi trường ảo và chạy app:
+## Cấu trúc thư mục dự án
+
+```text
+├── drowsiness_detector.py # Chương trình nhận diện và chạy Dashboard chính
+├── lstm_model.py          # Kiến trúc mạng LSTM (PyTorch)
+├── train_lstm.py          # Kịch bản huấn luyện mô hình LSTM
+├── lstm_drowsiness.pth    # Trọng số mô hình đã được huấn luyện sẵn
+├── run_dms.sh             # Script Bash tự động thiết lập môi trường và chạy ứng dụng
+├── install_remote.sh      # Script cài đặt AnyDesk trên Ubuntu
+├── requirements.txt       # Danh sách các thư viện Python cần thiết
+└── README.md              # Hướng dẫn sử dụng
+```
+
+---
+
+## Hướng dẫn cài đặt và sử dụng trên Ubuntu / Linux
+
+### 1. Chuẩn bị phần cứng và Camera
+- Đảm bảo camera USB Webcam hoặc CSI Camera đã được kết nối và hệ thống nhận diện thiết bị tại `/dev/video*`.
+- Bạn có thể kiểm tra danh sách thiết bị video bằng lệnh:
+  ```bash
+  ls -l /dev/video*
+  ```
+
+### 2. Khởi chạy nhanh bằng Script
+Dự án cung cấp sẵn tệp shell script tự động tạo môi trường ảo Python (`venv`), cài đặt các thư viện cần thiết và chạy ứng dụng:
 ```bash
+# Cấp quyền thực thi cho script (nếu chưa có)
+chmod +x run_dms.sh
+
+# Chạy chương trình
 ./run_dms.sh
 ```
 
-#### Cách chạy trên Windows:
-Mở CMD hoặc PowerShell tại thư mục dự án:
-```cmd
-# Tạo và kích hoạt môi trường ảo
-python -m venv venv
-venv\Scripts\activate
+### 3. Cài đặt thủ công (Không dùng Script)
+Nếu muốn tự cài đặt từng bước:
+```bash
+# 1. Cập nhật hệ thống và cài đặt môi trường ảo
+sudo apt update
+sudo apt install -y python3-pip python3-venv
 
-# Cài đặt thư viện
+# 2. Tạo và kích hoạt môi trường ảo
+python3 -m venv venv
+source venv/bin/activate
+
+# 3. Cài đặt các thư viện phụ thuộc
+pip install --upgrade pip
 pip install -r requirements.txt
-pip install mediapipe==0.10.14
 
-# Chạy chương trình
-python drowsiness_detector.py
+# 4. Chạy chương trình
+python3 drowsiness_detector.py
 ```
-*(Nếu muốn huấn luyện lại model từ đầu, bạn chạy lệnh `python train_lstm.py`)*
 
-#### Thiết lập tự động khởi động khi bật máy (Ubuntu):
-File cấu hình khởi động đã được thiết lập sẵn tại đường dẫn `~/.config/autostart/ai_dms.desktop`. Sau khi bật máy tính lên và đăng nhập vào màn hình desktop Ubuntu, ứng dụng nhận diện sẽ tự động được chạy sau 3 giây.
+*(Nếu muốn tự huấn luyện lại mô hình LSTM từ đầu, hãy chạy: `python3 train_lstm.py`)*
 
----
-
-### 2. Chạy trên Raspberry Pi 4 (Ubuntu / Raspberry Pi OS)
-
-#### Sơ đồ đấu nối linh kiện ngoại vi:
-* **Động cơ rung**: Nối chân điều khiển vào **GPIO 17** (BCM pin 17 / Vật lý pin 11).
-* **Còi chíp (Buzzer)**: Nối chân điều khiển vào **GPIO 27** (BCM pin 27 / Vật lý pin 13).
-
-#### Kích hoạt phần cứng trong code:
-Mặc định hệ thống chạy ở chế độ PC thường (bỏ qua còi và rung). Để kích hoạt lại còi và rung khi cắm vào Pi:
-1. Mở file `drowsiness_detector.py`.
-2. Tìm dòng 16 và sửa thành: `GPIO_AVAILABLE = True`.
-
-#### Khởi chạy trên Pi:
-* Nếu dùng USB Webcam thông thường: Chạy `./run_dms.sh`.
-* Nếu dùng Pi Camera Module 3: Cấu hình `dtoverlay=imx708` trong file `/boot/firmware/config.txt`, khởi động lại Pi và chạy lệnh:
-  ```bash
-  libcamerify python3 drowsiness_detector.py
-  ```
+### 4. Thiết lập khởi động cùng hệ thống (Autostart)
+Để ứng dụng tự động kích hoạt sau khi khởi động desktop Ubuntu:
+1. Tạo một file cấu hình autostart tại đường dẫn `~/.config/autostart/ai_dms.desktop`.
+2. Ghi nội dung cấu hình trỏ đường dẫn thực thi tới file `run_dms.sh`.
 
 ---
 
-## Các phím bấm khi test chương trình
-* **Hiệu chuẩn (Calibration)**: Khi camera mở lên, hãy ngồi thẳng lưng và nhìn thẳng camera trong **3 giây đầu tiên (100 frames)** để hệ thống học tư thế chuẩn làm gốc (Baseline).
-* **Hiệu chuẩn lại**: Nhấn phím **`r`** trên bàn phím nếu bạn thay đổi góc ngồi.
-* **Thoát chương trình**: Click chuột vào cửa sổ camera và nhấn phím **`q`**.
+## Hướng dẫn cấu hình và chạy trên Raspberry Pi
+
+### 1. Sơ đồ kết nối GPIO (Cảnh báo vật lý)
+- **Động cơ rung**: Kết nối cực điều khiển qua transistor tới chân **GPIO 17** (BCM 17 / Physical Pin 11).
+- **Còi chíp (Buzzer)**: Kết nối cực điều khiển qua transistor tới chân **GPIO 27** (BCM 27 / Physical Pin 13).
+
+*Lưu ý: Mặc định tính năng điều khiển GPIO sẽ tự động kích hoạt nếu thư viện `RPi.GPIO` được cài đặt thành công trên hệ thống.*
+
+### 2. Cấu hình Camera trên Raspberry Pi OS / Ubuntu
+Nếu bạn sử dụng **Raspberry Pi Camera Module 3** hoặc các dòng camera CSI:
+1. Thêm cấu hình cảm biến vào `/boot/firmware/config.txt` (ví dụ: `dtoverlay=imx708`).
+2. Khởi động lại thiết bị.
+3. Chạy chương trình thông qua công cụ hỗ trợ tương thích `libcamerify`:
+   ```bash
+   libcamerify python3 drowsiness_detector.py
+   ```
+
+---
+
+## Hướng dẫn kiểm thử (Testing & Calibration)
+
+1. **Hiệu chuẩn (Calibration)**: Khi ứng dụng bắt đầu mở camera, tài xế cần ngồi thẳng lưng, nhìn thẳng vào camera trong khoảng **3 giây đầu tiên (100 frames)** để hệ thống thiết lập baseline sinh học chuẩn (EAR, MAR, Head Pose gốc).
+2. **Hiệu chuẩn lại**: Nhấn phím **`r`** trên bàn phím bất cứ lúc nào nếu thay đổi tư thế ngồi hoặc vị trí camera.
+3. **Thoát chương trình**: Nhấn phím **`q`** tại màn hình hiển thị Dashboard của camera để giải phóng camera và đóng ứng dụng an toàn.
