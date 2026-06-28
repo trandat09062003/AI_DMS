@@ -13,9 +13,11 @@ except ImportError:
 
 try:
     import RPi.GPIO as GPIO
-    GPIO_AVAILABLE = True
+    GPIO_AVAILABLE = False # Tạm thời vô hiệu hóa theo yêu cầu người dùng
 except ImportError:
     GPIO_AVAILABLE = False
+
+WINSOUND_AVAILABLE = False # Không dùng âm thanh bíp hệ thống trên Windows/Linux
 
 # Cấu hình cổng vật lý trên Raspberry Pi (nếu chạy trên Ubuntu Pi)
 MOTOR_PIN = 17  # Chân GPIO 17 điều khiển động cơ rung
